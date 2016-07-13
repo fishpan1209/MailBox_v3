@@ -2,106 +2,103 @@ package com.fishpan1209.mailbox_v3;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class Manager {
-	
+import com.fishpan1209.mailbox_v3.WorkQueue.Worker;
 
+public class Manager {
+	private LinkedBlockingQueue<String> owners;
+	private int numWorker;
+	private MysqlConnection conn;
+	
+	
+	public Manager(LinkedBlockingQueue<String> owners, int numWorker, MysqlConnection conn){
+		this.owners = owners;
+		this.numWorker = numWorker;
+		this.conn = conn;
+	}
+	
+	public void getListAndCopy(boolean debug, long timeoutS) {
+		// initiate numWorkers for all owners
+		ExecutorService service = Executors.newFixedThreadPool(this.numWorker);
+		ScheduledExecutorService canceller = Executors.newSingleThreadScheduledExecutor();
+		List<Future<Long>> jobList = new ArrayList<Future<Long>>();
+		int totalTime = 0;
+
+		while (!owners.isEmpty()) {
+			String owner = owners.take();
+			LinkedBlockingQueue<String> mailslots = conn.getMailslotList(owner);
+			try {
+				MailslotWorker worker = new MailslotWorker(mailslots);
+				Future<Long> future = service.submit(worker);
+				jobList.add(future);
+				canceller.schedule(new Callable<Void>() {
+					public Void call() {
+						future.cancel(true);
+						return null;
+					}
+				}, timeoutS, TimeUnit.SECONDS);
+
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+
+			for (Future<Long> fur : jobList) {
+				try {
+					totalTime += fur.get();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				} catch (ExecutionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+		service.shutdown();
+		service.awaitTermination(1, TimeUnit.HOURS); // wait until all threads
+														// terminate
+
+		// measure wall-clock elasped time
+		System.out.println("All get list and copy task completed, wall-clock elapsed time: " + totalTime + "ms");
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+    // args[0]: mailbox path
+	// args[1]: number of threads for getFileList for all owners
 	public static void main(String[] args) throws InterruptedException {
-		if (args.length < 4) {
+		if (args.length < 2) {
 			throw new IllegalArgumentException("Not enough args");
 		}
 		
-		System.out.println("Testing new method: ");
-		JobQueue job = new JobQueue();
-		long timeoutS = 100; // timeout in seconds
-		
-		// Experiment1: test single file
-		// args[0]: path of testing file
-		System.out.println("\nExperiment 1: test a single file with new method: ");
-		LinkedBlockingQueue<String> jobq1 = job.buildJobQueue(args[0]);
-		System.out.println("Total number of jobs to be processed: "+jobq1.size());
-		WorkQueue workq1 = new WorkQueue(1, jobq1);
-		workq1.getFileListOfSrcDir(timeoutS);
-		
-		
-		// Experiment2: test a small folder
-		// args[1]: path of testing folder
-		System.out.println("\nExperiment 2: test a small folder with new method: ");
-		LinkedBlockingQueue<String> jobq2 = job.buildJobQueue(args[1]);
-		System.out.println("Total number of jobs to be processed: "+jobq2.size());
-		WorkQueue workq2 = new WorkQueue(1, jobq2);
-		workq2.getFileListOfSrcDir(timeoutS);
-		
-		/*
-		// Experiment3: test a large folder
-		// args[2]: path of testing folder
-		System.out.println("\nExperiment 3: test a large folder with new method: ");
-		LinkedBlockingQueue<String> jobq3 = job.buildJobQueue(args[2]);
-		System.out.println("Total number of jobs to be processed: "+jobq3.size());
-		WorkQueue workq3 = new WorkQueue(1, jobq3);
-		workq3.getFileListOfSrcDir(timeoutS);
-		
-		// Experiment4: test multiple folders
-		// args[3]: path of testing directory
-		// args[4]: number of threads
-		System.out.println("\nExperiment 4: test multiple folders with new method: ");
-		LinkedBlockingQueue<String> jobq4 = job.buildJobQueue(args[3]);
-		System.out.println("Total number of jobs to be processed: "+jobq4.size());
-	    int numWorker = Integer.parseInt(args[4]);
-		WorkQueue workq4 = new WorkQueue(numWorker, jobq4);
-		workq4.getFileListOfSrcDir(timeoutS);
-		
-		Thread.sleep(10000);
-		
-		
-		// test old method
-		System.out.println("Testing old method: ");
-		OldWorker oldworker = new OldWorker();
-		
-		// Experiment1: test single file
-		// args[0]: path of testing file
-		System.out.println("\nExperiment 1: test a single file with old method: ");
-		try {
-			oldworker.getFileListFolder(args[0]+"test1/");
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		// Experiment2: test a small folder
-		// args[1]: path of testing folder
-		System.out.println("\nExperiment 2: test a small folder with old method: ");
-		try {
-			oldworker.getFileListFolder(args[1]+"test2/");
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		// Experiment3: test a large folder
-		// args[2]: path of testing folder
-		System.out.println("\nExperiment 3: test a large folder with old method: ");
-		try {
-			oldworker.getFileListFolder(args[2]+"test3/");
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		// Experiment4: test a directory
-		// args[3]: path of testing directory
-		System.out.println("\nExperiment 4: test multiple folders with old method: ");
-		oldworker.getFileListDir(args[3]);
-		
-		Thread.sleep(10000);
-		
-		*/
+		System.out.println("Mailbox manager starts scanning mailbox: "+args[0]);
+		// build a jobqueue for all owners， distribute job to worker threads
+		String db_driver = "com.mysql.jdbc.Driver";
+		String dbURL = "jdbc:mysql://localhost:3306/MailBox";
+		String user = "test";
+		String password = "123456";
+		MysqlConnection conn = new MysqlConnection(db_driver, dbURL, user, password);
+		LinkedBlockingQueue<String> owners = conn.getOwnerList();
+		int numWorker = Integer.parseInt(args[1]);
+		Manager manager = new Manager(owners, numWorker, conn);
+		// timeout in seconds
+		long timeoutS = 1000;
+		boolean debug = true;
+		manager.getListAndCopy(debug, timeoutS);
 		System.exit(0);
 	}
 

@@ -28,7 +28,7 @@ public class Manager {
 		this.conn = conn;
 	}
 	
-	public void getListAndCopy(boolean debug, long timeoutS) {
+	public void getListAndCopy(String dest, boolean debug, long timeoutS) {
 		// initiate numWorkers for all owners
 		ExecutorService service = Executors.newFixedThreadPool(this.numWorker);
 		ScheduledExecutorService canceller = Executors.newSingleThreadScheduledExecutor();
@@ -36,10 +36,11 @@ public class Manager {
 		int totalTime = 0;
 
 		while (!owners.isEmpty()) {
-			String owner = owners.take();
-			LinkedBlockingQueue<String> mailslots = conn.getMailslotList(owner);
+			
 			try {
-				MailslotWorker worker = new MailslotWorker(mailslots);
+				String owner = owners.take();
+				LinkedBlockingQueue<String> mailslots = conn.getMailslotList(owner);
+				MailslotWorker worker = new MailslotWorker(owner,mailslots,conn, dest);
 				Future<Long> future = service.submit(worker);
 				jobList.add(future);
 				canceller.schedule(new Callable<Void>() {
@@ -64,9 +65,14 @@ public class Manager {
 				}
 			}
 		}
-		service.shutdown();
-		service.awaitTermination(1, TimeUnit.HOURS); // wait until all threads
-														// terminate
+		
+		try {
+			service.shutdown();
+			service.awaitTermination(1, TimeUnit.HOURS);
+		} catch (InterruptedException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} // wait until all threads terminate
 
 		// measure wall-clock elasped time
 		System.out.println("All get list and copy task completed, wall-clock elapsed time: " + totalTime + "ms");
@@ -80,8 +86,11 @@ public class Manager {
 	
     // args[0]: mailbox path
 	// args[1]: number of threads for getFileList for all owners
+	// args[2]: copy destination
+	// args[3]: timeout in seconds
+	// args[4]: debug
 	public static void main(String[] args) throws InterruptedException {
-		if (args.length < 2) {
+		if (args.length < 3) {
 			throw new IllegalArgumentException("Not enough args");
 		}
 		
@@ -96,9 +105,10 @@ public class Manager {
 		int numWorker = Integer.parseInt(args[1]);
 		Manager manager = new Manager(owners, numWorker, conn);
 		// timeout in seconds
-		long timeoutS = 1000;
-		boolean debug = true;
-		manager.getListAndCopy(debug, timeoutS);
+		String dest = args[2];
+		long timeoutS = Long.parseLong(args[3]);
+		boolean debug = args[4]=="Y"? true : false;
+		manager.getListAndCopy(dest, debug, timeoutS);
 		System.exit(0);
 	}
 

@@ -107,8 +107,8 @@ public class Manager {
 	args[3]: timeout in seconds
 	args[4]: debug
 	*/
-	public static void main(String[] args) throws InterruptedException {
-		if (args.length < 3) {
+	public static void main(String[] args){
+		if (args.length < 5) {
 			throw new IllegalArgumentException("Not enough args");
 		}
 		

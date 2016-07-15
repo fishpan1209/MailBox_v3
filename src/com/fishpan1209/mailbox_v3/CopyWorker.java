@@ -63,7 +63,7 @@ public class CopyWorker {
 					System.out.println("Processing file: " + fileName);
 				String fileSrc = mailslotPath + "/" + fileName;
 				String fileDest = mailslotDest + "/" + fileName;
-				singleFileCopyer singleCP = new singleFileCopyer(fileSrc, fileDest);
+				singleFileCopyer singleCP = new singleFileCopyer(mailslotPath, mailslotDest, fileName);
 				@SuppressWarnings("unchecked")
 				Future<Long> future = service.submit(singleCP);
 				jobList.add(future);

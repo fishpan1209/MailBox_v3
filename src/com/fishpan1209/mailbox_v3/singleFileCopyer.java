@@ -1,5 +1,6 @@
 package com.fishpan1209.mailbox_v3;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -9,13 +10,15 @@ import java.nio.file.Paths;
 import java.util.concurrent.Callable;
 
 public class singleFileCopyer implements Callable {
-	private final String fileSrc;
-	private final String fileDest;
+	private final String mailslotPath;
+	private final String mailslotDest;
+	private final String fileName;
 	
 
-	public singleFileCopyer(String fileSrc, String fileDest) {
-		this.fileSrc = fileSrc;
-		this.fileDest = fileDest;
+	public singleFileCopyer(String mailslotPath, String mailslotDest, String fileName) {
+		this.mailslotPath = mailslotPath;
+		this.mailslotDest = mailslotDest;
+		this.fileName = fileName;
 	}
 	
 	@Override
@@ -24,12 +27,14 @@ public class singleFileCopyer implements Callable {
      
 		try {
 			// input file
+			String fileSrc = mailslotPath+"/"+fileName;
 			RandomAccessFile inFile = new RandomAccessFile(fileSrc, "rw");
 			FileChannel inchannel = inFile.getChannel();
 			long fileSize;
 			try {
 				fileSize = inchannel.size();
 				// create output file
+				String fileDest = mailslotDest+"/"+fileName;
 				RandomAccessFile outFile = new RandomAccessFile(fileDest, "rw");
 				FileChannel outchannel = outFile.getChannel();
 
@@ -72,7 +77,24 @@ public class singleFileCopyer implements Callable {
 			e.getMessage();
 		}
 		
+		// release file lock after copying
+		releaseFileLock(mailslotPath, fileName);
 		return System.currentTimeMillis()-start;
 
+	}
+	
+	private static boolean releaseFileLock(String path, String fileName)
+	{
+			String lockFileName = null;
+			if ( fileName.endsWith(".lck") == true )
+				lockFileName = fileName;
+			else
+	        	lockFileName = fileName+".lck";
+	
+			//logmessage("deleteing lock file: " + path+"/"+lockFileName);
+	        File flck = new File(path, lockFileName);
+	        flck.delete();
+	
+	        return true;
 	}
 }

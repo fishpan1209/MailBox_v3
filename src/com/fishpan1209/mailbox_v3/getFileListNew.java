@@ -211,11 +211,7 @@ public final class getFileListNew
 
 				}
 			}
-			
-			// clean up lck files for iterative testing
-			for(String s : filelist){
-				releaseFileLock(dirname, s);
-			}
+		
 			return filelist;
 		}
 		else

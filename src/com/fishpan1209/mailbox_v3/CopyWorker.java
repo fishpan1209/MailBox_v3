@@ -20,182 +20,89 @@ import java.util.concurrent.TimeUnit;
 
 public class CopyWorker {
 	private int numWorkers;
+	private String mailslotPath;
+	private String mailslotDest;
 	private String[] filelist;
-	private LinkedBlockingQueue<String> jobq;
-	private String dest;
 	private boolean debug;
+	private LinkedBlockingQueue<String> copyq;
 	
 	
-	public CopyWorker(int numWorkers, String folder, String dest, String[] filelist){
+	public CopyWorker(int numWorkers, String mailslotPath, String mailslotDest, String[] filelist, boolean debug){
 		this.numWorkers = numWorkers;
-		this.dest = dest+folder;
-		this.jobq = new LinkedBlockingQueue<String>();
-		for(String file : filelist){
-			jobq.add(file);
-		}
+		this.mailslotPath = mailslotPath;
+		this.mailslotDest = mailslotDest;
+		this.debug = debug;
 		
+		for(String file : filelist){
+			this.copyq.add(file);
+		}	
 	}
 	
-	public void fileCopy(long timeoutS) throws InterruptedException{
-		    boolean debug = true;
-		
-			// make dest dir
-			File destDir = new File(this.dest);
-			if (!destDir.exists()) {
-				destDir.mkdir();
-			}else{
-				destDir.delete();
-				destDir.mkdir();
-			}
-			
-			// initiate multiple workers & start copying files from list
-			ExecutorService service = Executors.newFixedThreadPool(this.numWorkers);
-			ScheduledExecutorService canceller = Executors.newSingleThreadScheduledExecutor();
-			List<Future<Long>> jobList = new ArrayList<Future<Long>>();
-		    long totalTime = 0;
-			while (!this.jobq.isEmpty()) {
+	public void fileCopy(long timeoutS) throws InterruptedException {
+		if (debug)
+			System.out.println("Copying mailslot from " + mailslotPath + " to " + mailslotDest);
+		// make dest dir
+		File destDir = new File(this.mailslotDest);
+		if (!destDir.exists()) {
+			destDir.mkdir();
+		}
+		// handle empty filelist
+		if (filelist.length == 0)
+			return;
 
-				try {
-					String file = jobq.take();
-					if(debug) System.out.println("Processing file: " + file);
-					Copyer copyer = new Copyer(file, dest);
-					@SuppressWarnings("unchecked")
-					Future<Long> future = service.submit(copyer);
-					jobList.add(future);
-					canceller.schedule(new Callable<Void>() {
-						public Void call() {
-							future.cancel(true);
-							return null;
-						}
-					}, timeoutS, TimeUnit.SECONDS);
+		// initiate multiple workers & start copying files from list
+		ExecutorService service = Executors.newFixedThreadPool(this.numWorkers);
+		ScheduledExecutorService canceller = Executors.newSingleThreadScheduledExecutor();
+		List<Future<Long>> jobList = new ArrayList<Future<Long>>();
+		long totalTime = 0;
+		while (!this.copyq.isEmpty()) {
 
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-	            
-				
-					for (Future<Long> fur : jobList) {
-						try {
-							totalTime+=fur.get();
-						} catch (InterruptedException e) {
-							e.printStackTrace();
-						} catch (ExecutionException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
-						}
-					}
-				}
-			
-			service.shutdown();
-			service.awaitTermination(1, TimeUnit.HOURS);  // wait until all threads terminate
-			
-			// measure wall-clock elasped time
-			System.out.println("All copying task completed, wall-clock elapsed time: "+totalTime+"ms");
 			try {
-				Thread.sleep(1000);
+				String fileName = copyq.take();
+				if (debug)
+					System.out.println("Processing file: " + fileName);
+				String fileSrc = mailslotPath + "/" + fileName;
+				String fileDest = mailslotDest + "/" + fileName;
+				singleFileCopyer singleCP = new singleFileCopyer(fileSrc, fileDest);
+				@SuppressWarnings("unchecked")
+				Future<Long> future = service.submit(singleCP);
+				jobList.add(future);
+				canceller.schedule(new Callable<Void>() {
+					public Void call() {
+						future.cancel(true);
+						return null;
+					}
+				}, timeoutS, TimeUnit.SECONDS);
+
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		}
-		
 
-		class Copyer implements Callable {
-			private final String file;
-			private final String dest;
-			private SingleCopyer singleCP;
-
-			public Copyer(String file, String dest) {
-				this.file = file;
-				this.dest = dest;
-				this.singleCP = new SingleCopyer();
-			}
-
-			// for each worker, get file list of assigned folder
-			// initiate number of copy workers by size/200+1; copy that folder to destination
-			@Override
-			public Long call() {
-				if(debug) System.out.println("Current thread: "+Thread.currentThread().getName());
-				long start = System.currentTimeMillis();
-				
-				copyFile( file, dest);
-				
-				long end = System.currentTimeMillis();
-				return (end-start);
-			}
-
-		
-	}
-		
-		public void copyFile(String file, String dest) {
-			try {
-				String out = dest+file;
+			for (Future<Long> fur : jobList) {
 				try {
-					// input file
-					RandomAccessFile inFile = new RandomAccessFile(file, "rw");
-					FileChannel inchannel = inFile.getChannel();
-					long fileSize = inchannel.size();
-					
-					// create output file
-					RandomAccessFile outFile = new RandomAccessFile(out, "rw");
-					FileChannel outchannel = outFile.getChannel();
-					
-					// get file size
-				
-					ByteBuffer buffer = ByteBuffer.allocate((int) fileSize);
-					
-					// write header first
-					//System.out.println(header);
-					ProcessFile processfile = new ProcessFile(Paths.get(file));
-					String header = processfile.getHeader();
-									
-					outchannel.write(ByteBuffer.wrap(header.getBytes()));
-					
-					// write file body
-					int bytesRead = inchannel.read(buffer);
-					while(bytesRead != -1){
-						buffer.flip(); // make buffer ready for read
-						while(buffer.hasRemaining()){
-							outchannel.write(buffer); // write to output file
-						}
-						buffer.clear();
-						bytesRead = outchannel.read(buffer); // reset
-			
-					}
-					
-					//System.out.println("End of file reached.."+"\n");
-					inFile.close();
-					outFile.close();
-
-				} catch (FileNotFoundException e) {
-					System.out.println("FILE NOT FOUND EXCEPTION");
-					e.getMessage();
+					totalTime += fur.get();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				} catch (ExecutionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
-			} catch (IOException e) {
-				System.out.println("IO EXCEPTION");
-				e.getMessage();
 			}
 		}
 
-	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-		String[] filelist = new String[10];
-		for(int i=0; i<filelist.length; i++){
-			filelist[i] = "test"+i+".txt";
-		}
-		int numWorkers = 2;
-		String src = "/users/aojing/dropbox/liaison/project/data/Input/Input3/test";
-		String dest = "/users/aojing/dropbox/liaison/project/data/Output/";
-		CopyWorker test = new CopyWorker(numWorkers, src, dest, filelist);
-		int timeoutS = 100;
+		service.shutdown();
+		service.awaitTermination(1, TimeUnit.HOURS); // wait until all threads
+														// terminate
+
+		// measure wall-clock elasped time
+		System.out.println("All copying task completed, wall-clock elapsed time: " + totalTime + "ms");
 		try {
-			test.fileCopy(timeoutS);
+			Thread.sleep(1000);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
 	}
 
 }

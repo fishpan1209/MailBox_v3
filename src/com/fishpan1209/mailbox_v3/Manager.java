@@ -1,7 +1,6 @@
 package com.fishpan1209.mailbox_v3;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -12,14 +11,13 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import com.fishpan1209.mailbox_v3.WorkQueue.Worker;
 
 public class Manager {
 	private LinkedBlockingQueue<String> owners;
 	private int numWorker;
 	private MysqlConnection conn;
+	private static long totalTime;
 
 	public Manager(LinkedBlockingQueue<String> owners, int numWorker, MysqlConnection conn){
 		this.owners = owners;
@@ -27,6 +25,7 @@ public class Manager {
 		this.conn = conn;
 	}
 	
+	@SuppressWarnings("unchecked")
 	public void getListAndCopy(String dest, boolean debug, long timeoutS) {
 		// create dest folder if not exists
 		File destDir = new File(dest);
@@ -38,7 +37,6 @@ public class Manager {
 		ExecutorService service = Executors.newFixedThreadPool(this.numWorker);
 		ScheduledExecutorService canceller = Executors.newSingleThreadScheduledExecutor();
 		List<Future<Long>> jobList = new ArrayList<Future<Long>>();
-		int totalTime = 0;
 		
 		if(debug) System.out.println("\n Number of owners to process: "+owners.size());
 
@@ -56,6 +54,8 @@ public class Manager {
 				
 				// get list of all mailslots belong to the owner
 				LinkedBlockingQueue<String> mailslots = conn.getMailslotList(owner);
+				
+				
 				MailslotWorker worker = new MailslotWorker(owner,mailslots,conn, ownerDest, debug);
 				Future<Long> future = service.submit(worker);
 				jobList.add(future);
@@ -80,8 +80,9 @@ public class Manager {
 					e.printStackTrace();
 				}
 			}
+			
 		}
-		
+	
 		try {
 			service.shutdown();
 			service.awaitTermination(1, TimeUnit.HOURS);
@@ -98,6 +99,7 @@ public class Manager {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
 	}
 	
 	/* parameters
@@ -126,7 +128,7 @@ public class Manager {
 		// timeout in seconds
 		String dest = args[2];
 		long timeoutS = Long.parseLong(args[3]);
-		boolean debug = args[4]=="Y"? true : false;
+		boolean debug = args[4].equals("Y")? true : false;
 		
 		// for each owner, get file list and copy files to destination
 		manager.getListAndCopy(dest, debug, timeoutS);

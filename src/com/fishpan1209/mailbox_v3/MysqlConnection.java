@@ -35,7 +35,7 @@ public class MysqlConnection {
 	        try {
 	            Class.forName(db_driver);
 	            connection = DriverManager.getConnection(dbURL, getProperties());
-	            System.out.println("get new mysql connection: "+connection.toString());
+	            
 	            
 	        } catch (ClassNotFoundException | SQLException e) {
 	            // Java 7+
@@ -50,7 +50,7 @@ public class MysqlConnection {
             try {
                 connection.close();
                 connection = null;
-                System.out.println("mysql connection has been closed");
+          
             } catch (SQLException e) {
                 e.printStackTrace();
             }
@@ -81,7 +81,7 @@ public class MysqlConnection {
 		Connection conn = connect();
 		try {
 			Statement stmt = conn.createStatement();
-			String selectOwners = "select distinct mailslotID from OWNER where owner=owner";
+			String selectOwners = "select distinct mailslotID from OWNER where owner='"+owner+"'";
 			ResultSet rs = stmt.executeQuery(selectOwners);
 			while(rs.next()){
 				mailslots.add(rs.getString(1));

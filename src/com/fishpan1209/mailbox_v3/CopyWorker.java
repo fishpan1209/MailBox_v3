@@ -32,6 +32,7 @@ public class CopyWorker {
 		this.mailslotPath = mailslotPath;
 		this.mailslotDest = mailslotDest;
 		this.debug = debug;
+		this.copyq = new LinkedBlockingQueue<String>();
 		
 		for(String file : filelist){
 			this.copyq.add(file);
@@ -40,16 +41,14 @@ public class CopyWorker {
 	
 	public void fileCopy(long timeoutS) throws InterruptedException {
 		if (debug)
-			System.out.println("Copying mailslot from " + mailslotPath + " to " + mailslotDest);
+			System.out.println("\n Copying mailslot from " + mailslotPath + " to " + mailslotDest);
 		// make dest dir
 		File destDir = new File(this.mailslotDest);
 		if (!destDir.exists()) {
 			destDir.mkdir();
 		}
-		// handle empty filelist
-		if (filelist.length == 0)
-			return;
-
+		if(this.copyq.isEmpty()) return;
+		
 		// initiate multiple workers & start copying files from list
 		ExecutorService service = Executors.newFixedThreadPool(this.numWorkers);
 		ScheduledExecutorService canceller = Executors.newSingleThreadScheduledExecutor();

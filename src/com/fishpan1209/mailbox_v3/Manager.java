@@ -17,7 +17,7 @@ public class Manager {
 	private LinkedBlockingQueue<String> owners;
 	private int numWorker;
 	private MysqlConnection conn;
-	private static long totalTime;
+	
 
 	public Manager(LinkedBlockingQueue<String> owners, int numWorker, MysqlConnection conn){
 		this.owners = owners;
@@ -39,6 +39,8 @@ public class Manager {
 		List<Future<Long>> jobList = new ArrayList<Future<Long>>();
 		
 		if(debug) System.out.println("\n Number of owners to process: "+owners.size());
+		
+		long totalTime = 0;
 
 		while (!owners.isEmpty()) {
 			try {
@@ -92,14 +94,13 @@ public class Manager {
 		} // wait until all threads terminate
 
 		// measure wall-clock elasped time
-		System.out.println("All get list and copy task completed, wall-clock elapsed time: " + totalTime + "ms");
+		System.out.println("All get list and copy tasks completed, wall-clock elapsed time: " + totalTime + "ms");
 		try {
 			Thread.sleep(1000);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
-		
+		}	
 	}
 	
 	/* parameters
@@ -117,7 +118,7 @@ public class Manager {
 		System.out.println("Mailbox manager starts scanning mailbox: "+args[0]);
 		// open a mysql connection, get owner information
 		String db_driver = "com.mysql.jdbc.Driver";
-		String dbURL = "jdbc:mysql://localhost:3306/MailBox";
+		String dbURL = "jdbc:mysql://localhost:3306/MailBox?autoReconnect=true&useSSL=false";
 		String user = "test";
 		String password = "123456";
 		MysqlConnection conn = new MysqlConnection(db_driver, dbURL, user, password);

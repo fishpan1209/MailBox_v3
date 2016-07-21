@@ -23,14 +23,16 @@ public class CopyWorker {
 	private String mailslotPath;
 	private String mailslotDest;
 	private String[] filelist;
+	private long copyTime;
 	private boolean debug;
 	private LinkedBlockingQueue<String> copyq;
 	
 	
-	public CopyWorker(int numWorkers, String mailslotPath, String mailslotDest, String[] filelist, boolean debug){
+	public CopyWorker(int numWorkers, String mailslotPath, String mailslotDest, String[] filelist, long copyTime, boolean debug){
 		this.numWorkers = numWorkers;
 		this.mailslotPath = mailslotPath;
 		this.mailslotDest = mailslotDest;
+		this.copyTime = 0;
 		this.debug = debug;
 		this.copyq = new LinkedBlockingQueue<String>();
 		
@@ -39,7 +41,8 @@ public class CopyWorker {
 		}	
 	}
 	
-	public void fileCopy(long timeoutS) throws InterruptedException {
+	public long fileCopy(long timeoutS) throws InterruptedException {
+		long start = System.currentTimeMillis();
 		if (debug)
 			System.out.println("\n Copying mailslot from " + mailslotPath + " to " + mailslotDest);
 		// make dest dir
@@ -47,13 +50,13 @@ public class CopyWorker {
 		if (!destDir.exists()) {
 			destDir.mkdir();
 		}
-		if(this.copyq.isEmpty()) return;
+		if(this.copyq.isEmpty()) return System.currentTimeMillis()-start;
 		
 		// initiate multiple workers & start copying files from list
 		ExecutorService service = Executors.newFixedThreadPool(this.numWorkers);
 		ScheduledExecutorService canceller = Executors.newSingleThreadScheduledExecutor();
 		List<Future<Long>> jobList = new ArrayList<Future<Long>>();
-		long totalTime = 0;
+		
 		while (!this.copyq.isEmpty()) {
 
 			try {
@@ -80,7 +83,7 @@ public class CopyWorker {
 
 			for (Future<Long> fur : jobList) {
 				try {
-					totalTime += fur.get();
+					copyTime += fur.get();
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				} catch (ExecutionException e) {
@@ -94,14 +97,13 @@ public class CopyWorker {
 		service.awaitTermination(1, TimeUnit.HOURS); // wait until all threads
 														// terminate
 
-		// measure wall-clock elasped time
-		System.out.println("All copying task completed, wall-clock elapsed time: " + totalTime + "ms");
 		try {
 			Thread.sleep(1000);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		return System.currentTimeMillis()-start+copyTime;
 	}
 
 }

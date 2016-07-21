@@ -31,9 +31,10 @@ public class MailslotWorker implements Callable {
 	@Override
 	public Long call() {
 		long start = System.currentTimeMillis();
-		
+		long copyTime = 0;
 		// get filelist, lock files
 		while (!mailslots.isEmpty()) {
+			
 			try {
 				String mailslot = mailslots.take();
 				String fullPathName = conn.getFullPath(owner, mailslot);
@@ -54,8 +55,8 @@ public class MailslotWorker implements Callable {
 				
 			
 				try {
-					CopyWorker cpWorker = new CopyWorker(numCopyWorkers, fullPathName, mailslotDest, fileList, debug);
-					cpWorker.fileCopy(timeoutS);
+					CopyWorker cpWorker = new CopyWorker(numCopyWorkers, fullPathName, mailslotDest, fileList, copyTime, debug);
+					copyTime = cpWorker.fileCopy(timeoutS);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
@@ -69,7 +70,7 @@ public class MailslotWorker implements Callable {
 		}
 
 		long end = System.currentTimeMillis();
-		return (end - start);
+		return (end - start)+copyTime;
 	}
 
 	private void saveResult(String[] fileList, String mailslot, String ownerDest) throws IOException {

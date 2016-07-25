@@ -17,12 +17,14 @@ public class Manager {
 	private LinkedBlockingQueue<String> owners;
 	private int numWorker;
 	private MysqlConnection conn;
+	private String tableName;
 	
 
-	public Manager(LinkedBlockingQueue<String> owners, int numWorker, MysqlConnection conn){
+	public Manager(LinkedBlockingQueue<String> owners, int numWorker, MysqlConnection conn, String tableName){
 		this.owners = owners;
 		this.numWorker = numWorker;
 		this.conn = conn;
+		this.tableName = tableName;
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -55,10 +57,10 @@ public class Manager {
 				}
 				
 				// get list of all mailslots belong to the owner
-				LinkedBlockingQueue<String> mailslots = conn.getMailslotList(owner);
+				LinkedBlockingQueue<String> mailslots = conn.getMailslotList(tableName, owner);
 				
 				
-				MailslotWorker worker = new MailslotWorker(owner,mailslots,conn, ownerDest, debug);
+				MailslotWorker worker = new MailslotWorker(tableName, owner,mailslots,conn, ownerDest, debug);
 				Future<Long> future = service.submit(worker);
 				jobList.add(future);
 				canceller.schedule(new Callable<Void>() {
@@ -94,7 +96,7 @@ public class Manager {
 		} // wait until all threads terminate
 
 		// measure wall-clock elasped time
-		System.out.println("All get list and copy tasks completed, wall-clock elapsed time: " + totalTime + "ms");
+		System.out.println("All get list and copy tasks completed, wall-clock elapsed time: " + totalTime/1000 + "s");
 		try {
 			Thread.sleep(1000);
 		} catch (InterruptedException e) {
@@ -104,7 +106,7 @@ public class Manager {
 	}
 	
 	/* parameters
-    args[0]: mailbox path
+    args[0]: database tablename
 	args[1]: number of threads for getFileList for all owners
 	args[2]: copy destination
 	args[3]: timeout in seconds
@@ -115,17 +117,18 @@ public class Manager {
 			throw new IllegalArgumentException("Not enough args");
 		}
 		
-		System.out.println("Mailbox manager starts scanning mailbox: "+args[0]);
+		String tableName = args[0];
+		System.out.println("Mailbox manager starts scanning mailbox: "+tableName);
 		// open a mysql connection, get owner information
 		String db_driver = "com.mysql.jdbc.Driver";
-		String dbURL = "jdbc:mysql://localhost:3306/MailBox?autoReconnect=true&useSSL=false";
-		String user = "test";
+		String dbURL = "jdbc:mysql://10.10.2.49:3306/mailbox?autoReconnect=true&useSSL=false";
+		String user = "macroot";
 		String password = "123456";
 		MysqlConnection conn = new MysqlConnection(db_driver, dbURL, user, password);
 		
-		LinkedBlockingQueue<String> owners = conn.getOwnerList();
+		LinkedBlockingQueue<String> owners = conn.getOwnerList(tableName);
 		int numWorker = Integer.parseInt(args[1]);
-		Manager manager = new Manager(owners, numWorker, conn);
+		Manager manager = new Manager(owners, numWorker, conn, tableName);
 		// timeout in seconds
 		String dest = args[2];
 		long timeoutS = Long.parseLong(args[3]);

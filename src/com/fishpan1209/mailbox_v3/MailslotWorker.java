@@ -11,6 +11,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class MailslotWorker implements Callable {
+	private String tableName;
 	private String owner;
 	private LinkedBlockingQueue<String> mailslots;
 	private MysqlConnection conn;
@@ -19,7 +20,8 @@ public class MailslotWorker implements Callable {
 	private getFileListNew listWorker;
 	
 
-	public MailslotWorker(String owner, LinkedBlockingQueue<String> mailslots, MysqlConnection conn, String ownerDest, boolean debug) {
+	public MailslotWorker(String tableName, String owner, LinkedBlockingQueue<String> mailslots, MysqlConnection conn, String ownerDest, boolean debug) {
+		this.tableName = tableName;
 		this.owner = owner;
 		this.mailslots = mailslots;
 		this.conn = conn;
@@ -37,7 +39,7 @@ public class MailslotWorker implements Callable {
 			
 			try {
 				String mailslot = mailslots.take();
-				String fullPathName = conn.getFullPath(owner, mailslot);
+				String fullPathName = conn.getFullPath(tableName, owner, mailslot);
 				
 				if(debug) System.out.println("\n Processing mailslot " +mailslot+" located at: "+fullPathName);
 
@@ -51,6 +53,7 @@ public class MailslotWorker implements Callable {
 		        // copy fileList, if empty, simply create mailslot folder
 				String mailslotDest = ownerDest+"/"+mailslot;
 				int numCopyWorkers = fileList.length / 200 + 1;
+				
 				long timeoutS = 10000;
 				
 			

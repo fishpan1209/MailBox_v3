@@ -8,12 +8,12 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
 public class DataSynthesizer {
-/*
+
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
-		String dir = "/users/aojing/dropbox/liaison/project/data/Input/Input2/";
-		for(int i=1; i<=100; i++){
-			String fname = dir+"test"+i+".txt";
+		String dir = "/users/aojing/dropbox/liaison/project/data/mailbox/mailboxtest/test3/flag/";
+		for(int i=1021; i<=1030; i++){
+			String fname = dir+"flag"+i+".lck";
 			
 				RandomAccessFile rf;
 				try {
@@ -33,6 +33,6 @@ public class DataSynthesizer {
 		}
 		
 	}
-	*/
+	
 
 }

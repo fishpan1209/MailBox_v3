@@ -57,12 +57,12 @@ public class MysqlConnection {
         }
 	}
 	
-	public LinkedBlockingQueue<String> getOwnerList() {
+	public LinkedBlockingQueue<String> getOwnerList(String tableName) {
 		LinkedBlockingQueue<String> owners = new LinkedBlockingQueue<String>();
 		Connection conn = connect();
 		try {
 			Statement stmt = conn.createStatement();
-			String selectOwners = "select distinct owner from OWNER";
+			String selectOwners = "select distinct owner from "+tableName;
 			ResultSet rs = stmt.executeQuery(selectOwners);
 			while(rs.next()){
 				owners.add(rs.getString(1));
@@ -76,12 +76,12 @@ public class MysqlConnection {
 		return owners;
 	}
 	
-	public LinkedBlockingQueue<String> getMailslotList(String owner) {
+	public LinkedBlockingQueue<String> getMailslotList(String tableName, String owner) {
 		LinkedBlockingQueue<String> mailslots = new LinkedBlockingQueue<String>();
 		Connection conn = connect();
 		try {
 			Statement stmt = conn.createStatement();
-			String selectOwners = "select distinct mailslotID from OWNER where owner='"+owner+"'";
+			String selectOwners = "select distinct mailslotID from "+tableName+" where owner='"+owner+"'";
 			ResultSet rs = stmt.executeQuery(selectOwners);
 			while(rs.next()){
 				mailslots.add(rs.getString(1));
@@ -95,12 +95,12 @@ public class MysqlConnection {
 		return mailslots;
 	}
 	
-	public String getFullPath(String owner, String mailslot) {
+	public String getFullPath(String tableName, String owner, String mailslot) {
 		String fullPathName = "";
 		Connection conn = connect();
 		try {
 			Statement stmt = conn.createStatement();
-			String selectOwners = "select fullPathName from OWNER where owner='"+owner+"' and mailslotID = '"
+			String selectOwners = "select fullPathName from "+tableName+" where owner='"+owner+"' and mailslotID = '"
 					+mailslot+"'";
 			ResultSet rs = stmt.executeQuery(selectOwners);
 			

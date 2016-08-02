@@ -73,7 +73,8 @@ public class MailslotWorker implements Callable {
 		}
 
 		long end = System.currentTimeMillis();
-		return (end - start)+copyTime;
+		return (end-start);
+		//return (end - start);
 	}
 
 	private void saveResult(String[] fileList, String mailslot, String ownerDest) throws IOException {

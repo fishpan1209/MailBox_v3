@@ -29,6 +29,7 @@ public class Manager {
 	
 	@SuppressWarnings("unchecked")
 	public void getListAndCopy(String dest, boolean debug, long timeoutS) {
+		long start = System.currentTimeMillis();
 		// create dest folder if not exists
 		File destDir = new File(dest);
 		if(!destDir.exists()){
@@ -96,7 +97,9 @@ public class Manager {
 		} // wait until all threads terminate
 
 		// measure wall-clock elasped time
-		System.out.println("All get list and copy tasks completed, wall-clock elapsed time: " + totalTime/1000 + "s");
+		
+		long elaspedTime = System.currentTimeMillis()-start;
+		System.out.println("All get list and copy tasks completed, wall-clock elapsed time: " + elaspedTime/1000 + "s");
 		try {
 			Thread.sleep(1000);
 		} catch (InterruptedException e) {
@@ -119,11 +122,22 @@ public class Manager {
 		
 		String tableName = args[0];
 		System.out.println("Mailbox manager starts scanning mailbox: "+tableName);
+		
+		/*
 		// open a mysql connection, get owner information
 		String db_driver = "com.mysql.jdbc.Driver";
+		
 		String dbURL = "jdbc:mysql://10.10.2.49:3306/mailbox?autoReconnect=true&useSSL=false";
+		
 		String user = "macroot";
 		String password = "123456";
+		*/
+		
+		String db_driver = "oracle.jdbc.driver.OracleDriver";
+		String dbURL = "jdbc:oracle:thin:@dxpdb01u.liaison.prod:1522:dxpuat";
+		String user = "mailboxtest";
+		String password = "Mailbox123$";
+		
 		MysqlConnection conn = new MysqlConnection(db_driver, dbURL, user, password);
 		
 		LinkedBlockingQueue<String> owners = conn.getOwnerList(tableName);
@@ -136,6 +150,7 @@ public class Manager {
 		
 		// for each owner, get file list and copy files to destination
 		manager.getListAndCopy(dest, debug, timeoutS);
+		
 		System.exit(0);
 	}
 

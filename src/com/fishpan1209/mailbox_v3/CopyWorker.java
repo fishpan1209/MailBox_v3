@@ -80,8 +80,9 @@ public class CopyWorker {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-
+			int i=1;
 			for (Future<Long> fur : jobList) {
+				
 				try {
 					copyTime += fur.get();
 				} catch (InterruptedException e) {
@@ -98,12 +99,13 @@ public class CopyWorker {
 														// terminate
 
 		try {
-			Thread.sleep(1000);
+			Thread.sleep(100);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		return System.currentTimeMillis()-start+copyTime;
+		// do not add copyTime
+		return System.currentTimeMillis()-start;
 	}
 
 }

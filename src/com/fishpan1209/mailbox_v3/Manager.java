@@ -30,11 +30,13 @@ public class Manager {
 	@SuppressWarnings("unchecked")
 	public void getListAndCopy(String dest, boolean debug, long timeoutS) {
 		long start = System.currentTimeMillis();
+		
 		// create dest folder if not exists
 		File destDir = new File(dest);
 		if(!destDir.exists()){
 			destDir.mkdirs();
 		}
+		
 		// initiate numWorkers for all owners
 		if(debug) System.out.println("\n Prepare getting file list and copying of mailbox to destination "+dest);
 		ExecutorService service = Executors.newFixedThreadPool(this.numWorker);
@@ -60,7 +62,7 @@ public class Manager {
 				// get list of all mailslots belong to the owner
 				LinkedBlockingQueue<String> mailslots = conn.getMailslotList(tableName, owner);
 				
-				
+				// initiate a worker for each owner
 				MailslotWorker worker = new MailslotWorker(tableName, owner,mailslots,conn, ownerDest, debug);
 				Future<Long> future = service.submit(worker);
 				jobList.add(future);
@@ -123,21 +125,20 @@ public class Manager {
 		String tableName = args[0];
 		System.out.println("Mailbox manager starts scanning mailbox: "+tableName);
 		
-		/*
+		
 		// open a mysql connection, get owner information
 		String db_driver = "com.mysql.jdbc.Driver";
-		
-		String dbURL = "jdbc:mysql://10.10.2.49:3306/mailbox?autoReconnect=true&useSSL=false";
-		
-		String user = "macroot";
+		String dbURL = "jdbc:mysql://127.0.0.1:3306/mailbox?autoReconnect=true&useSSL=false";
+		String user = "root";
 		String password = "123456";
-		*/
 		
+		/*
 		String db_driver = "oracle.jdbc.driver.OracleDriver";
-		String dbURL = "jdbc:oracle:thin:@dxpdb01u.liaison.prod:1522:dxpuat";
+		//String dbURL = "jdbc:oracle:thin:@dxpdb01u.liaison.prod:1522:dxpuat";
+		String dbURL = "jdbc:oracle:thin:@//at4p-vpdxpdb.liaison.prod:1521/dxp1p";
 		String user = "mailboxtest";
 		String password = "Mailbox123$";
-		
+		*/
 		MysqlConnection conn = new MysqlConnection(db_driver, dbURL, user, password);
 		
 		LinkedBlockingQueue<String> owners = conn.getOwnerList(tableName);
